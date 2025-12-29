@@ -376,7 +376,7 @@ def _try_caesar(text: str, _data: bytes) -> List[DecodeResult]:
         return []
     results = []
     for shift in range(1, 26):
-        out_text = _shift_alpha(text, shift)
+        out_text = _shift_alpha(text, -shift)
         if out_text == text:
             continue
         results.append(
@@ -476,7 +476,15 @@ def _try_bacon(text: str, _data: bytes) -> List[DecodeResult]:
             if letter is None:
                 valid = False
                 break
-            out_chars.append(letter)
+            if label == "classic":
+                if letter == "I":
+                    out_chars.append("I/J")
+                elif letter == "U":
+                    out_chars.append("U/V")
+                else:
+                    out_chars.append(letter)
+            else:
+                out_chars.append(letter)
         if valid:
             out_text = "".join(out_chars)
             results.append(
@@ -518,6 +526,9 @@ def _try_polybius(text: str, _data: bytes) -> List[DecodeResult]:
     out_chars = []
     for idx in range(0, len(raw), 2):
         pair = raw[idx : idx + 2]
+        if pair == "24":
+            out_chars.append("I/J")
+            continue
         letter = _POLYBIUS.get(pair)
         if letter is None:
             return []

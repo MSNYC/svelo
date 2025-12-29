@@ -1,13 +1,24 @@
 import base64
 import gzip
 import zlib
+from typing import Optional
 
-from svelo.decoders import get_decoders
+import svelo.decoders as dec
 
 
 def _decoder_by_name(name: str):
-    decoders = {decoder.name: decoder for decoder in get_decoders()}
+    decoders = {decoder.name: decoder for decoder in dec.get_decoders()}
     return decoders[name]
+
+
+def _assert_roundtrip(
+    decoder_name: str, plain: str, encoded: str, note: Optional[str] = None
+) -> None:
+    decoder = _decoder_by_name(decoder_name)
+    results = decoder.func(encoded, encoded.encode("utf-8"))
+    if note is not None:
+        results = [result for result in results if result.note == note]
+    assert any(result.output == plain.encode("utf-8") for result in results)
 
 
 def test_hex_decode():
@@ -36,6 +47,44 @@ def test_reverse_decode():
     results = decoder.func("stressed", b"stressed")
     assert len(results) == 1
     assert results[0].output == b"desserts"
+
+
+def test_caesar_decode():
+    decoder = _decoder_by_name("caesar")
+    plain = "Mark Schulz"
+    cipher = dec.encode_caesar(plain, 12)
+    results = decoder.func(cipher, cipher.encode("utf-8"))
+    matches = [result for result in results if result.note == "shift=12"]
+    assert any(result.output == plain.encode("utf-8") for result in matches)
+
+
+def test_roundtrip_simple_encoders():
+    plain = "Hello World"
+    _assert_roundtrip("hex", plain, dec.encode_hex(plain))
+    _assert_roundtrip("base64", plain, dec.encode_base64(plain))
+    _assert_roundtrip("base64url", plain, dec.encode_base64url(plain))
+    _assert_roundtrip("base32", plain, dec.encode_base32(plain))
+    _assert_roundtrip("base85", plain, dec.encode_base85(plain))
+    _assert_roundtrip("ascii85", plain, dec.encode_ascii85(plain))
+    _assert_roundtrip("base58", plain, dec.encode_base58(plain))
+    _assert_roundtrip("url", plain, dec.encode_url(plain))
+    _assert_roundtrip("rot13", plain, dec.encode_rot13(plain))
+    _assert_roundtrip("atbash", plain, dec.encode_atbash(plain))
+    _assert_roundtrip("reverse", plain, dec.encode_reverse(plain))
+
+
+def test_roundtrip_param_encoders():
+    plain = "HELLO WORLD"
+    _assert_roundtrip("caesar", plain, dec.encode_caesar(plain, 12), "shift=12")
+    encoded = dec.encode_fibonacci(plain, 0, 1, False)
+    _assert_roundtrip("fibonacci", plain, encoded)
+    _assert_roundtrip("morse", plain, dec.encode_morse(plain))
+    _assert_roundtrip("bacon", "HELLO", dec.encode_bacon("HELLO", "classic"), "classic")
+    _assert_roundtrip("bacon", "HELLO", dec.encode_bacon("HELLO", "binary"), "binary")
+    _assert_roundtrip("polybius", "HELLO", dec.encode_polybius("HELLO"))
+    rail_plain = "WEAREDISCOVEREDFLEEATONCE"
+    _assert_roundtrip("railfence", rail_plain, dec.encode_railfence(rail_plain, 3), "rails=3")
+    _assert_roundtrip("scytale", rail_plain, dec.encode_scytale(rail_plain, 5), "cols=5")
 
 
 def _fibonacci_encode(
@@ -95,11 +144,26 @@ def test_bacon_decode():
     assert b"Z" in outputs
 
 
+def test_bacon_decode_ambiguous_classic():
+    decoder = _decoder_by_name("bacon")
+    cipher = dec.encode_bacon("I", "classic")
+    results = decoder.func(cipher, cipher.encode("utf-8"))
+    matches = [result for result in results if result.note == "classic"]
+    assert any(result.output == b"I/J" for result in matches)
+
+
 def test_polybius_decode():
     decoder = _decoder_by_name("polybius")
     results = decoder.func("2315313134", b"2315313134")
     assert len(results) == 1
     assert results[0].output == b"HELLO"
+
+
+def test_polybius_decode_ambiguous():
+    decoder = _decoder_by_name("polybius")
+    results = decoder.func("24", b"24")
+    assert len(results) == 1
+    assert results[0].output == b"I/J"
 
 
 def _scytale_encrypt(text: str, cols: int) -> str:

@@ -50,6 +50,12 @@ def test_cli_base64_decode(capsys):
     assert "Hello" in captured.out
 
 
+def test_cli_fibonacci_decode_roundtrip(capsys):
+    _run_cli(["Mbsm Vhphgh", "--decoder", "fibonacci"])
+    captured = capsys.readouterr()
+    assert "Mark Schulz" in captured.out
+
+
 def test_cli_stdin_decode(capsys):
     _run_cli(["--decoder", "hex"], stdin_text="48656c6c6f")
     captured = capsys.readouterr()

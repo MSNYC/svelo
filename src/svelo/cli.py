@@ -2,7 +2,7 @@ import argparse
 import hashlib
 import sys
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, Iterable, List, Optional, Sequence, Tuple
 
 from .decoders import (
     DecodeResult,
@@ -29,6 +29,36 @@ DEFAULT_MAX_PER_DECODER = 1
 DEFAULT_MAX_RESULTS = 50
 DEFAULT_SHOW_HEX = False
 DEFAULT_MAX_CHARS = 2000
+DIVIDER = "-" * 72
+INPUT_PREFIX = ">> "
+
+
+def _print_section(title: str) -> None:
+    print(DIVIDER)
+    print(title)
+    print(DIVIDER)
+
+
+def _prompt_line(prompt: str) -> str:
+    print("")
+    try:
+        raw = input(f"{INPUT_PREFIX}{prompt}").strip()
+    except KeyboardInterrupt:
+        print("Goodbye.")
+        print("")
+        raise SystemExit(0)
+    print("")
+    return raw
+
+
+def _format_bool(value: bool) -> str:
+    return "yes" if value else "no"
+
+
+def _format_cap(value: int, zero_label: str) -> str:
+    if value <= 0:
+        return zero_label
+    return str(value)
 
 
 @dataclass(frozen=True)
@@ -43,6 +73,13 @@ class ScoredItem:
     output_text: str
     abs_score: float
     delta: float
+
+
+@dataclass(frozen=True)
+class DecodeSummary:
+    printed: int
+    total_candidates: int
+    total_filtered: int
 
 
 def _label(result: DecodeResult) -> str:
@@ -98,7 +135,7 @@ def _base_name(chain: Tuple[str, ...]) -> str:
 
 def _prompt_choice(prompt: str, options: List[str], default: str) -> str:
     while True:
-        raw = input(prompt).strip().lower()
+        raw = _prompt_line(prompt).lower()
         if not raw:
             return default
         if raw.isdigit():
@@ -114,7 +151,7 @@ def _prompt_int(
     prompt: str, min_value: int, max_value: int, default: Optional[int] = None
 ) -> int:
     while True:
-        raw = input(prompt).strip()
+        raw = _prompt_line(prompt)
         if not raw:
             if default is not None:
                 return default
@@ -134,7 +171,7 @@ def _prompt_float(
     prompt: str, min_value: float, max_value: float, default: Optional[float] = None
 ) -> float:
     while True:
-        raw = input(prompt).strip()
+        raw = _prompt_line(prompt)
         if not raw:
             if default is not None:
                 return default
@@ -153,7 +190,7 @@ def _prompt_float(
 def _prompt_bool(prompt: str, default: bool) -> bool:
     options = "Y/n" if default else "y/N"
     while True:
-        raw = input(f"{prompt} [{options}]: ").strip().lower()
+        raw = _prompt_line(f"{prompt} [{options}]: ").lower()
         if not raw:
             return default
         if raw in {"y", "yes"}:
@@ -164,25 +201,43 @@ def _prompt_bool(prompt: str, default: bool) -> bool:
 
 
 def _prompt_text() -> str:
-    print("Enter or paste input. Finish with an empty line.")
+    print("")
+    print("Enter or paste input.")
+    print("Finish with an empty line.")
     lines = []
     while True:
         try:
-            line = input()
+            line = input(INPUT_PREFIX)
         except EOFError:
             break
+        except KeyboardInterrupt:
+            print("Goodbye.")
+            print("")
+            raise SystemExit(0)
         if line == "":
             break
         lines.append(line)
+    print("")
     return "\n".join(lines)
 
 
 def _print_interactive_help() -> None:
-    print("Interactive mode:")
+    _print_section("Interactive help")
+    print("How it works:")
     print("- Choose encode or decode from the menu.")
     print("- Paste any text directly; no shell quoting needed.")
     print("- End input with an empty line.")
     print("- For advanced settings, choose the prompt options when asked.")
+
+
+def _print_main_menu() -> None:
+    _print_section("Main menu")
+    print("1) Decode")
+    print("2) Encode")
+    print("3) List decoders")
+    print("4) List encoders")
+    print("5) Help")
+    print("6) Quit")
 
 
 def _select_encoder(encoders: Sequence[Encoder], name: Optional[str]) -> Encoder:
@@ -200,10 +255,14 @@ def _select_encoder(encoders: Sequence[Encoder], name: Optional[str]) -> Encoder
     return by_name[choice]
 
 
-def _encode_with_params(encoder: Encoder, text: str) -> str:
+def _encode_with_params(
+    encoder: Encoder, text: str, echo: Optional[Callable[[str], None]] = None
+) -> str:
     name = encoder.name
     if name == "caesar":
         shift = _prompt_int("Shift (1-25): ", 1, 25)
+        if echo:
+            echo(f"Shift: {shift}")
         return encode_caesar(text, shift)
     if name == "fibonacci":
         seed = _prompt_choice(
@@ -212,6 +271,9 @@ def _encode_with_params(encoder: Encoder, text: str) -> str:
         advance = _prompt_choice(
             "Advance on [alpha/all] (default alpha): ", ["alpha", "all"], "alpha"
         )
+        if echo:
+            echo(f"Seed: {seed}")
+            echo(f"Advance on: {advance}")
         seed_a, seed_b = (int(part) for part in seed.split(","))
         return encode_fibonacci(text, seed_a, seed_b, advance == "all")
     if name == "bacon":
@@ -220,6 +282,8 @@ def _encode_with_params(encoder: Encoder, text: str) -> str:
             ["classic", "binary"],
             "classic",
         )
+        if echo:
+            echo(f"Variant: {variant}")
         return encode_bacon(text, variant)
     if name == "polybius":
         return encode_polybius(text)
@@ -227,9 +291,13 @@ def _encode_with_params(encoder: Encoder, text: str) -> str:
         return encode_morse(text)
     if name == "railfence":
         rails = _prompt_int("Rails (2-6): ", 2, 6)
+        if echo:
+            echo(f"Rails: {rails}")
         return encode_railfence(text, rails)
     if name == "scytale":
         cols = _prompt_int("Columns (2-6): ", 2, 6)
+        if echo:
+            echo(f"Columns: {cols}")
         return encode_scytale(text, cols)
     if encoder.func is None:
         raise SystemExit(f"Encoder requires parameters: {name}")
@@ -240,6 +308,19 @@ def _format_output(text: str, max_chars: int) -> str:
     if max_chars <= 0 or len(text) <= max_chars:
         return text
     return text[:max_chars] + "... [truncated]"
+
+
+def _format_preview(text: str, max_chars: int = 120) -> str:
+    compact = text.replace("\n", "\\n")
+    if not compact:
+        return "(empty)"
+    return _format_output(compact, max_chars)
+
+
+def _line_count(text: str) -> int:
+    if not text:
+        return 0
+    return text.count("\n") + 1
 
 
 def _print_results(
@@ -256,6 +337,8 @@ def _print_results(
         print(_format_output(scored.output_text, max_chars))
         if show_hex:
             print(scored.item.data.hex())
+        if "I/J" in scored.output_text or "U/V" in scored.output_text:
+            print("Note: I/J and U/V mark ambiguous letters in this cipher.")
         print("")
         printed += 1
     return printed
@@ -309,7 +392,7 @@ def _decode_text(
     max_results: int,
     show_hex: bool,
     max_chars: int,
-) -> int:
+) -> DecodeSummary:
     data = text.encode("utf-8")
     active = _select_decoders(decoders, decoder_names)
     results = _gather(text, data, active, chain_depth, max_results)
@@ -336,8 +419,10 @@ def _decode_text(
         reverse=True,
     )
 
+    total_candidates = len(scored_items)
     if show_all:
         filtered = scored_items
+        total_filtered = total_candidates
     else:
         filtered = [
             scored
@@ -354,60 +439,79 @@ def _decode_text(
                 counts[base] = counts.get(base, 0) + 1
                 capped.append(scored)
             filtered = capped
+        total_filtered = len(filtered)
         filtered = filtered[:top]
 
     printed = _print_results(filtered, show_hex, max_chars)
     if printed == 0:
         raise SystemExit("No results matched the current filters.")
-    return printed
+    return DecodeSummary(
+        printed=printed,
+        total_candidates=total_candidates,
+        total_filtered=total_filtered,
+    )
 
 
 def _interactive_loop(decoders: Sequence[Decoder], encoders: Sequence[Encoder]) -> None:
-    menu = (
-        "1) Decode\n"
-        "2) Encode\n"
-        "3) List decoders\n"
-        "4) List encoders\n"
-        "5) Help\n"
-        "6) Quit\n"
-    )
+    _print_section("Svelo interactive")
+    print("Guided decode and encode with step-by-step summaries.")
     while True:
-        print(menu)
-        choice = input("Select an option: ").strip().lower()
+        _print_main_menu()
+        choice = _prompt_line("Select an option: ").lower()
         if choice in {"6", "q", "quit", "exit"}:
             return
         if choice in {"5", "h", "help", "?"}:
             _print_interactive_help()
             continue
         if choice in {"3", "list", "decoders"}:
+            _print_section("Available decoders")
             for decoder in decoders:
                 print(f"{decoder.name}: {decoder.description}")
             continue
         if choice in {"4", "encoders"}:
+            _print_section("Available encoders")
             for encoder in encoders:
                 print(f"{encoder.name}: {encoder.description}")
             continue
         if choice in {"1", "d", "decode"}:
+            _print_section("Decode: Step 1/3 - Input")
             text = _prompt_text()
             if not text:
                 print("No input provided.")
                 continue
-            raw = input("Decoder(s) [all]: ").strip()
+            print("")
+            print("Input summary:")
+            print(f"Preview: {_format_preview(text)}")
+            print(f"Characters: {len(text)}")
+            print(f"Lines: {_line_count(text)}")
+
+            _print_section("Decode: Step 2/3 - Decoder selection")
+            raw = _prompt_line("Decoder(s) [all]: ")
             if raw:
                 decoder_names = [part for part in raw.replace(",", " ").split() if part]
+                decoder_summary = ", ".join(decoder_names)
             else:
                 decoder_names = []
+                decoder_summary = f"all ({len(decoders)} available)"
+            print("")
+            print("Selection:")
+            print(f"Decoders: {decoder_summary}")
+
+            _print_section("Decode: Step 3/3 - Settings")
             advanced = _prompt_bool("Advanced settings", False)
             chain_depth = DEFAULT_CHAIN_DEPTH
             min_score = DEFAULT_MIN_SCORE
             min_delta = DEFAULT_MIN_DELTA
-            show_all = False
+            show_all = bool(decoder_names)
             top = DEFAULT_TOP
             rank = DEFAULT_RANK
             max_per_decoder = DEFAULT_MAX_PER_DECODER
             max_results = DEFAULT_MAX_RESULTS
             show_hex = DEFAULT_SHOW_HEX
             max_chars = DEFAULT_MAX_CHARS
+            if not decoder_names and not show_all:
+                top = DEFAULT_MAX_RESULTS
+                max_per_decoder = 0
             if advanced:
                 chain_depth = _prompt_int(
                     f"Chain depth [{DEFAULT_CHAIN_DEPTH}]: ",
@@ -421,9 +525,9 @@ def _interactive_loop(decoders: Sequence[Decoder], encoders: Sequence[Encoder]) 
                 min_delta = _prompt_float(
                     f"Min delta [{DEFAULT_MIN_DELTA}]: ", -1.0, 1.0, DEFAULT_MIN_DELTA
                 )
-                show_all = _prompt_bool("Show all results", False)
+                show_all = _prompt_bool("Show all results", show_all)
                 top = _prompt_int(
-                    f"Top results [{DEFAULT_TOP}]: ", 1, 50, DEFAULT_TOP
+                    f"Top results [{top}]: ", 1, 50, top
                 )
                 rank = _prompt_choice(
                     f"Rank mode [{DEFAULT_RANK}]: ",
@@ -431,10 +535,10 @@ def _interactive_loop(decoders: Sequence[Decoder], encoders: Sequence[Encoder]) 
                     DEFAULT_RANK,
                 )
                 max_per_decoder = _prompt_int(
-                    f"Max per decoder [{DEFAULT_MAX_PER_DECODER}]: ",
+                    f"Max per decoder [{max_per_decoder}]: ",
                     0,
                     10,
-                    DEFAULT_MAX_PER_DECODER,
+                    max_per_decoder,
                 )
                 max_results = _prompt_int(
                     f"Max results [{DEFAULT_MAX_RESULTS}]: ",
@@ -449,8 +553,24 @@ def _interactive_loop(decoders: Sequence[Decoder], encoders: Sequence[Encoder]) 
                     10000,
                     DEFAULT_MAX_CHARS,
                 )
+            print("")
+            print("Settings summary:")
+            print(f"Advanced settings: {_format_bool(advanced)}")
+            print(f"Chain depth: {chain_depth}")
+            print(f"Min score: {min_score:.2f}")
+            print(f"Min delta: {min_delta:+.2f}")
+            print(f"Show all results: {_format_bool(show_all)}")
+            print(f"Top results: {top}")
+            print(f"Rank mode: {rank}")
+            print(f"Max per decoder: {_format_cap(max_per_decoder, 'no cap')}")
+            print(f"Max results: {max_results}")
+            print(f"Show hex output: {_format_bool(show_hex)}")
+            print(f"Max chars: {_format_cap(max_chars, 'no limit')}")
+
+            _print_section("Decode: Running")
+            print("Decoding...")
             try:
-                _decode_text(
+                summary = _decode_text(
                     text,
                     decoders,
                     decoder_names,
@@ -467,18 +587,79 @@ def _interactive_loop(decoders: Sequence[Decoder], encoders: Sequence[Encoder]) 
                 )
             except SystemExit as exc:
                 print(str(exc))
+                print(DIVIDER)
+                continue
+            print(DIVIDER)
+            print(
+                f"Done. {summary.printed} of {summary.total_candidates} result(s) shown."
+            )
+            if not show_all and summary.printed < summary.total_candidates:
+                show_more = _prompt_bool(
+                    "Show all results (including low-score candidates)", False
+                )
+                if show_more:
+                    _print_section("Decode: All results")
+                    try:
+                        summary = _decode_text(
+                            text,
+                            decoders,
+                            decoder_names,
+                            chain_depth,
+                            min_score,
+                            min_delta,
+                            True,
+                            top,
+                            rank,
+                            max_per_decoder,
+                            max_results,
+                            show_hex,
+                            max_chars,
+                        )
+                    except SystemExit as exc:
+                        print(str(exc))
+                        print(DIVIDER)
+                        continue
+                    print(DIVIDER)
+                    print(
+                        f"Done. {summary.printed} of {summary.total_candidates} result(s) shown."
+                    )
             continue
         if choice in {"2", "e", "encode"}:
+            _print_section("Encode: Step 1/3 - Input")
             text = _prompt_text()
             if not text:
                 print("No input provided.")
                 continue
+            print("")
+            print("Input summary:")
+            print(f"Preview: {_format_preview(text)}")
+            print(f"Characters: {len(text)}")
+            print(f"Lines: {_line_count(text)}")
+
+            _print_section("Encode: Step 2/3 - Encoder selection")
             encoder = _select_encoder(encoders, None)
+            print("")
+            print("Selection:")
+            print(f"Encoder: {encoder.name} - {encoder.description}")
             try:
-                output = _encode_with_params(encoder, text)
+                _print_section("Encode: Step 3/3 - Encoder settings")
+                settings: List[str] = []
+
+                def _record_setting(line: str) -> None:
+                    settings.append(line)
+
+                output = _encode_with_params(encoder, text, _record_setting)
             except ValueError as exc:
                 print(str(exc))
                 continue
+            print("")
+            print("Settings summary:")
+            if settings:
+                for line in settings:
+                    print(line)
+            else:
+                print("No additional settings.")
+            _print_section("Encoded output")
             print(output)
             continue
         print("Unknown option. Enter 1-6 or 'q' to quit.")
@@ -629,6 +810,25 @@ def main() -> None:
         print(output)
         return
 
+    show_all = args.all
+    top = args.top
+    max_per_decoder = args.max_per_decoder
+    if (
+        args.decoder
+        and not args.all
+        and args.top == DEFAULT_TOP
+        and args.max_per_decoder == DEFAULT_MAX_PER_DECODER
+    ):
+        show_all = True
+    if (
+        not args.decoder
+        and not args.all
+        and args.top == DEFAULT_TOP
+        and args.max_per_decoder == DEFAULT_MAX_PER_DECODER
+    ):
+        top = DEFAULT_MAX_RESULTS
+        max_per_decoder = 0
+
     _decode_text(
         text,
         decoders,
@@ -636,10 +836,10 @@ def main() -> None:
         args.chain_depth,
         args.min_score,
         args.min_delta,
-        args.all,
-        args.top,
+        show_all,
+        top,
         args.rank,
-        args.max_per_decoder,
+        max_per_decoder,
         args.max_results,
         args.show_hex,
         args.max_chars,
