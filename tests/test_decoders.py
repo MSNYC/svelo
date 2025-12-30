@@ -152,8 +152,12 @@ def test_playfair_roundtrip():
     key = "MONARCHY"
     cipher = dec.playfair_encrypt(plain, key)
     decrypted = dec.playfair_decrypt(cipher, key)
-    # Note: J becomes I in Playfair
-    assert decrypted.replace("I", "J") == plain or decrypted == plain.replace("J", "I")
+    # Note: Playfair substitutes J→I and adds X padding for odd-length inputs
+    # The decrypted text should contain the original with I/J substitution
+    # and may have X padding at the end
+    plain_normalized = plain.replace("J", "I")
+    decrypted_normalized = decrypted.replace("J", "I").rstrip("X")
+    assert decrypted_normalized == plain_normalized
 
 
 def test_hill_roundtrip():

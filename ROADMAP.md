@@ -14,44 +14,54 @@ This roadmap outlines the vision for growing Svelo from a practical decoding CLI
 ## Phase 1: Enhanced Educational Content (Current Focus)
 
 ### Glossary System
-**Status**: Planned
+**Status**: ✅ Completed
 
-A built-in glossary to explain cryptographic concepts, accessible from the CLI.
+A built-in glossary to explain cryptographic concepts, accessible from the CLI and interactive menu.
 
-**Features:**
-- In-app glossary command: `svelo --glossary <term>`
-- Integration with interactive menu
-- Explanations for each cipher (how it works, history, security)
-- Reference links to external learning resources
-- Cross-references between related concepts
+**Implemented Features:**
+- ✅ CLI command: `svelo --info <cipher>` to view detailed glossary entries
+- ✅ Interactive "Learn" menu (main menu option 5) with browse and search
+- ✅ 33 comprehensive cipher entries covering all decoders and keyed ciphers
+- ✅ Each entry includes: description, how it works, historical context, security level, related ciphers, and verified reference links
+- ✅ Numbered selection for easy browsing
+- ✅ Search functionality by name, category, or keyword
+- ✅ All reference links verified and working
 
 **Example:**
 ```bash
-svelo --glossary vigenere
-# Output:
-# Vigenere Cipher
+svelo --info vigenere
+# Vigenère Cipher
+# ===============
 #
-# A polyalphabetic substitution cipher that uses a keyword to shift
-# letters by different amounts. Invented by Giovan Battista Bellaso
-# in 1553, but misattributed to Blaise de Vigenère.
+# Category: Polyalphabetic Substitution Cipher
+#
+# A method of encrypting text using a series of different Caesar ciphers
+# based on the letters of a keyword.
 #
 # How it works:
-#   - Uses a repeating keyword to determine shift amounts
-#   - Each letter of the key shifts the corresponding plaintext letter
-#   - More secure than Caesar cipher due to multiple shift values
+#   Uses a keyword to determine shift amounts. Each letter of the keyword
+#   specifies a different Caesar shift...
 #
-# Learn more:
-#   - https://en.wikipedia.org/wiki/Vigenère_cipher
-#   - Practical Cryptography: https://practicalcryptography.com/ciphers/vigenere-cipher/
+# Historical context:
+#   Invented by Giovan Battista Bellaso in 1553, but misattributed to
+#   Blaise de Vigenère in the 19th century...
+#
+# Security: Broken - vulnerable to Kasiski examination and frequency analysis
 #
 # Related: beaufort, variant, autokey, caesar
+#
+# Learn more:
+#   • https://en.wikipedia.org/wiki/Vigenère_cipher
+#   • http://practicalcryptography.com/ciphers/vigenere-gronsfeld-and-autokey-cipher/
 ```
 
 ### Cipher Metadata
-- Difficulty ratings (beginner/intermediate/advanced)
-- Historical usage period
-- Security classification (broken/weak/educational)
-- Common use cases (CTF, historical documents, etc.)
+**Status**: Partially Completed
+
+- ✅ Security classification (broken/weak/educational) - included in glossary
+- ✅ Historical usage period - included in glossary entries
+- 🔜 Difficulty ratings (beginner/intermediate/advanced)
+- 🔜 Common use cases (CTF, historical documents, etc.)
 
 ---
 
@@ -183,10 +193,11 @@ svelo --tutorial playfair
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to help with any of these roadmap items.
 
 **Current Priorities:**
-1. Glossary system implementation
-2. Cipher metadata and descriptions
+1. ~~Glossary system implementation~~ ✅ Completed
+2. Cipher metadata and descriptions (in progress - security levels added)
 3. Additional classical cipher support
-4. Tutorial/learning mode
+4. Cryptanalysis tools (frequency analysis, IC calculator)
+5. Tutorial/learning mode
 
 **Help Wanted:**
 - Historical research on ciphers

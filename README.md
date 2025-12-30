@@ -24,32 +24,31 @@ pip install -e .
 
 ## Usage
 
-Interactive menu (recommended for tricky inputs):
+### Quick Start (Interactive Mode - Recommended!)
+
+Just run `svelo` to launch the interactive menu:
 
 ```bash
 svelo
 ```
 
+This gives you a guided experience with:
+- **Decode** - Try all decoders automatically on your input
+- **Decrypt** - Use keyed ciphers (Vigenère, Playfair, etc.) with retry
+- **Encode** - Convert plaintext to encodings
+- **Encrypt** - Use keyed ciphers to encrypt
+- **Learn** - Browse the cipher glossary with 33 detailed entries
+- **Help** - Reference guide for all features
+
+The interactive mode handles special characters safely and guides you through each step.
+
+### Quick Decode (Command Line)
+
+For quick decodes, pass the encoded text directly:
+
 ```bash
 svelo "SGVsbG8gV29ybGQh"
-```
-
-Encode (interactive):
-
-```bash
-svelo --encode "Hello World"
-```
-
-Encode with paste mode (safe for quotes/backticks):
-
-```bash
-svelo --encode --paste
-```
-
-Encode (non-interactive):
-
-```bash
-svelo --encode --encoder hex "Hello World"
+# Auto-tries all decoders and shows ranked results
 ```
 
 Read from stdin:
@@ -58,22 +57,53 @@ Read from stdin:
 echo "48656c6c6f" | svelo
 ```
 
-List decoders:
+### Learn About Ciphers
+
+View detailed information about any cipher:
+
+```bash
+svelo --info vigenere
+svelo --info caesar
+svelo --info playfair
+```
+
+Each entry includes how it works, historical context, security level, and learning resources.
+
+### Quick Encode
+
+Encode text interactively:
+
+```bash
+svelo --encode "Hello World"
+# Prompts you to choose an encoder
+```
+
+Or specify the encoder directly:
+
+```bash
+svelo --encode --encoder hex "Hello World"
+# Output: 48656c6c6f20576f726c64
+```
+
+### Advanced Command-Line Options
+
+List available decoders/encoders:
 
 ```bash
 svelo --list
-```
-
-List encoders:
-
-```bash
 svelo --list-encoders
 ```
 
-Try multiple decode layers:
+Try multiple decode layers (chained decoding):
 
 ```bash
 svelo --chain-depth 2 "H4sIAAAAA..."
+```
+
+Show only top results:
+
+```bash
+svelo --top 5 "encoded_text"
 ```
 
 Rank by improvement vs input:
@@ -82,12 +112,7 @@ Rank by improvement vs input:
 svelo --rank delta --top 3 "Gur pbpx pebjf ng qnja."
 ```
 
-Learn about ciphers:
-
-```bash
-svelo --info vigenere
-svelo --info playfair
-```
+For a complete list of options, see the [Options](#options) section below.
 
 ## Interactive menu
 
@@ -135,6 +160,8 @@ ciphers to understand how they work and their historical context.
 - `--key` key for keyed ciphers in encrypt mode (non-interactive)
 - `--key2` second key for ADFGX/ADFGVX in encrypt mode (non-interactive)
 
+**Note:** Most users will prefer the interactive menu (`svelo` with no arguments) which handles all of these options with guided prompts. The command-line flags above are for scripting and advanced use cases.
+
 ## Keyed ciphers
 
 Keyed ciphers (vigenere, beaufort, variant, autokey, keyword, columnar, playfair, hill, adfgx, adfgvx)
@@ -169,10 +196,30 @@ Do not rely on it for security-critical or irreversible data without independent
 
 ## Tests
 
+Run the test suite:
+
 ```bash
 pip install -e ".[dev]"
 pytest
 ```
+
+**Test Coverage:**
+
+The project includes comprehensive tests for core cryptographic functionality:
+
+- ✅ **All cipher algorithms** - Thoroughly tested with roundtrip tests and known outputs
+- ✅ **All encoders/decoders** - Verified against standard implementations
+- ✅ **Basic CLI flags** - `--list`, `--encode`, `--decoder`, `--info`, stdin input
+- ✅ **Glossary system** - Verified `--info` flag returns correct entries
+
+**Not Currently Tested:**
+
+- Interactive menu workflows (manually tested)
+- Some advanced CLI flags (`--chain-depth`, `--min-score`, `--rank`, etc.)
+- Learn menu browse/search functionality (manually tested)
+
+The cryptographic implementations are the most critical components and are thoroughly tested.
+Interactive features have been manually verified to work correctly.
 
 ## Contributing
 

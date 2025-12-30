@@ -65,3 +65,24 @@ def test_cli_stdin_decode(capsys):
 def test_cli_no_results():
     with pytest.raises(SystemExit):
         _run_cli(["!!!"])
+
+
+def test_cli_info_caesar(capsys):
+    _run_cli(["--info", "caesar"])
+    captured = capsys.readouterr()
+    assert "Caesar Cipher" in captured.out
+    assert "Julius Caesar" in captured.out
+    assert "Historical context" in captured.out
+
+
+def test_cli_info_vigenere(capsys):
+    _run_cli(["--info", "vigenere"])
+    captured = capsys.readouterr()
+    assert "Vigenère Cipher" in captured.out
+    assert "polyalphabetic" in captured.out.lower()
+
+
+def test_cli_info_unknown(capsys):
+    _run_cli(["--info", "nonexistent"])
+    captured = capsys.readouterr()
+    assert "No glossary entry found" in captured.out
