@@ -6,3 +6,6 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+
+# Temporary agent-generated reports
+URL_VERIFICATION_REPORT.md

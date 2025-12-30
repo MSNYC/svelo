@@ -113,6 +113,65 @@ def test_columnar_roundtrip():
     assert dec.columnar_decrypt(cipher, "ZEBRA") == plain
 
 
+def test_columnar_uneven_grid():
+    # Test with text length not divisible by key length
+    # 5 chars, 3 columns = 2 rows with 1 short column
+    plain = "HELLO"
+    cipher = dec.columnar_encrypt(plain, "CAB")
+    assert dec.columnar_decrypt(cipher, "CAB") == plain
+    assert cipher == "EOLHL"  # Verify known result
+
+    # Another uneven case
+    plain = "ATTACKATDAWN"  # 12 chars
+    cipher = dec.columnar_encrypt(plain, "ZEBRAS")  # 6 cols = 2 rows exactly
+    assert dec.columnar_decrypt(cipher, "ZEBRAS") == plain
+
+    # Highly uneven case
+    plain = "TEST"  # 4 chars
+    cipher = dec.columnar_encrypt(plain, "KEYWORD")  # 7 cols
+    assert dec.columnar_decrypt(cipher, "KEYWORD") == plain
+
+
+def test_beaufort_roundtrip():
+    plain = "Hello World"
+    cipher = dec.beaufort_encrypt(plain, "KEY")
+    assert dec.beaufort_decrypt(cipher, "KEY") == plain
+    # Beaufort is self-reciprocal
+    assert dec.beaufort_encrypt(cipher, "KEY") == plain
+
+
+def test_autokey_roundtrip():
+    plain = "ATTACKATDAWN"
+    cipher = dec.autokey_encrypt(plain, "KEY")
+    decrypted = dec.autokey_decrypt(cipher, "KEY")
+    assert decrypted == plain
+
+
+def test_playfair_roundtrip():
+    plain = "HIDETHEGOLD"
+    key = "MONARCHY"
+    cipher = dec.playfair_encrypt(plain, key)
+    decrypted = dec.playfair_decrypt(cipher, key)
+    # Note: J becomes I in Playfair
+    assert decrypted.replace("I", "J") == plain or decrypted == plain.replace("J", "I")
+
+
+def test_hill_roundtrip():
+    plain = "HELP"
+    key = "HILL"
+    cipher = dec.hill_encrypt(plain, key)
+    decrypted = dec.hill_decrypt(cipher, key)
+    assert decrypted == plain
+
+
+def test_keyword_substitution_roundtrip():
+    plain = "HELLO WORLD"
+    key = "KEYWORD"
+    cipher = dec.keyword_substitution_encrypt(plain, key)
+    decrypted = dec.keyword_substitution_decrypt(cipher, key)
+    assert decrypted == plain
+
+
 def _fibonacci_encode(
     text: str, seed_a: int, seed_b: int, advance_all: bool
 ) -> str:

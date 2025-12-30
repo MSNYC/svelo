@@ -1,6 +1,18 @@
 # svelo
 
-Lightweight CLI that tries common decoders on a string and can also encode.
+**A lightweight educational CLI for classical cryptography and encoding**
+
+Svelo helps you decode and encode text using classical ciphers and common encodings. Perfect for CTF challenges, learning cryptography, or exploring historical cipher techniques.
+
+## Mission
+
+This project aims to be more than just a decoder tool—it's growing into a comprehensive educational resource for cryptography. We're building:
+
+- **Learning-focused features**: Explanations, tutorials, and cipher background
+- **Interactive exploration**: Hands-on cipher experimentation
+- **Community-driven growth**: Open to contributions and ideas
+
+See our [ROADMAP.md](ROADMAP.md) for planned features like an in-app glossary, cryptanalysis tools, and educational tutorials.
 
 ## Install (local)
 
@@ -70,17 +82,26 @@ Rank by improvement vs input:
 svelo --rank delta --top 3 "Gur pbpx pebjf ng qnja."
 ```
 
+Learn about ciphers:
+
+```bash
+svelo --info vigenere
+svelo --info playfair
+```
+
 ## Interactive menu
 
-The interactive menu is split into four modes:
+The interactive menu provides guided workflows:
 
-- Decode: non-keyed decoders (formats and simple transforms)
-- Decrypt: keyed ciphers (you supply keys and can retry)
-- Encode: non-keyed encoders
-- Encrypt: keyed ciphers (you supply keys)
+- **Decode**: non-keyed decoders (formats and simple transforms)
+- **Decrypt**: keyed ciphers (you supply keys and can retry)
+- **Encode**: non-keyed encoders
+- **Encrypt**: keyed ciphers (you supply keys)
+- **Learn**: cipher glossary with descriptions, history, and references
 
 In Decrypt mode, you select a keyed cipher and keep trying keys until you
-copy a successful result or return to the menu.
+copy a successful result or return to the menu. In Learn mode, browse or search
+ciphers to understand how they work and their historical context.
 
 ## Included decoders
 
@@ -93,6 +114,7 @@ copy a successful result or return to the menu.
 
 - `--list` list available decoders
 - `--list-encoders` list available encoders
+- `--info CIPHER` show glossary entry for a cipher
 - `--encode` encode input (prompts for cipher)
 - `--interactive` launch interactive menu
 - `--paste` read input from stdin (safe for quotes/backticks)
@@ -152,6 +174,43 @@ pip install -e ".[dev]"
 pytest
 ```
 
-## Issues
+## Contributing
 
-Report bugs or request features at `https://github.com/MSNYC/Svelo/issues`.
+Contributions are welcome! We're especially interested in:
+
+- **New ciphers and encodings**: Add support for additional cryptographic techniques
+- **Educational content**: Glossary entries, explanations, historical context
+- **Analysis features**: Frequency analysis, cipher detection, cryptanalysis tools
+- **Documentation**: Tutorials, examples, and learning resources
+- **Bug fixes and improvements**: Better accuracy, performance, or UX
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and [ROADMAP.md](ROADMAP.md) for planned features.
+
+**Quick Start for Contributors:**
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes (add tests!)
+4. Open a pull request
+
+## Roadmap
+
+We're actively expanding Svelo into a comprehensive cryptography education tool. Planned features include:
+
+- **Glossary system**: In-app explanations with reference links for each cipher
+- **Cryptanalysis tools**: Frequency analysis, pattern detection, cipher identification
+- **Tutorial mode**: Interactive lessons on how ciphers work
+- **Historical context**: Background on when/where ciphers were used
+- **Additional ciphers**: Four-square, bifid, trifid, and more
+
+See the full [ROADMAP.md](ROADMAP.md) for details and status.
+
+## Issues & Feedback
+
+- **Bug reports**: [Open an issue](https://github.com/MSNYC/Svelo/issues)
+- **Feature requests**: Share your ideas in [Issues](https://github.com/MSNYC/Svelo/issues)
+- **Questions**: Start a discussion or open an issue
+- **Educational ideas**: We'd love to hear about cipher resources or teaching opportunities
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.

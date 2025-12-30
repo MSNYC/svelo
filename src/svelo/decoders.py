@@ -522,6 +522,7 @@ def columnar_decrypt(text: str, key: str) -> str:
     remainder = len(text) % cols
     if remainder == 0:
         remainder = cols
+    # Determine which original column positions have full length
     col_lengths = [rows if idx < remainder else rows - 1 for idx in range(cols)]
     columns = [""] * cols
     idx = 0

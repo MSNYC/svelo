@@ -42,6 +42,7 @@ from .decoders import (
     variant_beaufort_decrypt,
     vigenere_decrypt,
 )
+from .glossary import format_entry, get_all_entries, get_entry, search_entries
 from .utils import english_score, to_text
 
 try:
@@ -463,6 +464,15 @@ def _print_interactive_help() -> None:
             "- Encrypting/Decrypting: keyed ciphers that require a secret key.",
         ]
     )
+    sections.append(
+        [
+            "Learn (cipher glossary):",
+            "- Browse or search all 33 ciphers and encodings.",
+            "- View detailed explanations, historical context, and references.",
+            "- Learn how each cipher works and when it was used.",
+            "- Access from main menu option 5 or use: svelo --info <cipher>",
+        ]
+    )
     decode_section = ["Decode (non-keyed):"]
     for decoder in _select_decoders(get_decoders(), _DECODE_METHODS):
         decode_section.append(f"- {decoder.name}: {decoder.description}")
@@ -502,8 +512,9 @@ def _print_main_menu() -> None:
     print("2) Decrypt (keyed)")
     print("3) Encode (non-keyed)")
     print("4) Encrypt (keyed)")
-    print("5) Help and reference")
-    print("6) Quit")
+    print("5) Learn (cipher glossary)")
+    print("6) Help and reference")
+    print("7) Quit")
 
 
 def _select_encoder(
@@ -875,6 +886,104 @@ def _decrypt_with_key_loop(cipher: str, text: str) -> bool:
         continue
 
 
+def _learn_menu() -> None:
+    """Interactive glossary and learning menu."""
+    while True:
+        _clear_view()
+        _print_section("Learn: Cipher Glossary")
+        print("Learn about the ciphers and encodings in Svelo")
+        print("")
+        print("1) Browse all ciphers")
+        print("2) Search for a cipher")
+        print("3) Back to main menu")
+        print("")
+
+        choice = _prompt_line("Select an option: ").lower()
+
+        if choice in {"3", "back", "menu", "q", "quit"}:
+            return
+
+        if choice in {"1", "browse"}:
+            _clear_view()
+            _print_section("Learn: All Ciphers")
+            entries = get_all_entries()
+            print(f"Showing {len(entries)} cipher(s) and encoding(s):\n")
+            for i, entry in enumerate(entries, 1):
+                print(f"{i}) {entry.name} - {entry.description[:70]}...")
+            print("")
+            print("Enter a number or cipher name to learn more, or press Enter to continue.")
+            selection = _prompt_line("Selection: ")
+            if selection:
+                # Try as number first
+                entry = None
+                try:
+                    idx = int(selection) - 1
+                    if 0 <= idx < len(entries):
+                        entry = entries[idx]
+                except ValueError:
+                    # Not a number, try as cipher name
+                    entry = get_entry(selection)
+
+                if entry:
+                    _clear_view()
+                    print(format_entry(entry))
+                    print("")
+                    _pause()
+                else:
+                    print(f"No entry found for '{selection}'")
+                    _pause()
+
+        elif choice in {"2", "search"}:
+            query = _prompt_line("Search (name, category, or keyword): ")
+            if not query:
+                continue
+            results = search_entries(query)
+            if not results:
+                print(f"No results found for '{query}'")
+                _pause()
+                continue
+
+            _clear_view()
+            _print_section(f"Learn: Search Results for '{query}'")
+            print(f"Found {len(results)} result(s):\n")
+            for i, entry in enumerate(results, 1):
+                print(f"{i}) {entry.name} - {entry.description[:70]}...")
+            print("")
+            print("Enter a number or cipher name to learn more, or press Enter to continue.")
+            selection = _prompt_line("Selection: ")
+            if selection:
+                # Try as number first
+                entry = None
+                try:
+                    idx = int(selection) - 1
+                    if 0 <= idx < len(results):
+                        entry = results[idx]
+                except ValueError:
+                    # Not a number, try as cipher name
+                    entry = get_entry(selection)
+
+                if entry:
+                    _clear_view()
+                    print(format_entry(entry))
+                    print("")
+                    _pause()
+                else:
+                    print(f"No entry found for '{selection}'")
+                    _pause()
+
+        else:
+            # Try treating input as a direct cipher name
+            entry = get_entry(choice)
+            if entry:
+                _clear_view()
+                print(format_entry(entry))
+                print("")
+                _pause()
+            else:
+                print("Unknown option. Enter 1-3 or a cipher name.")
+                _pause()
+
+
 def _interactive_loop(decoders: Sequence[Decoder], encoders: Sequence[Encoder]) -> None:
     _clear_view()
     _print_section("Svelo: Classic Ciphers & Encodings")
@@ -882,11 +991,14 @@ def _interactive_loop(decoders: Sequence[Decoder], encoders: Sequence[Encoder]) 
     while True:
         _print_main_menu()
         choice = _prompt_line("Select an option: ").lower()
-        if choice in {"6", "quit"}:
+        if choice in {"7", "quit"}:
             return
-        if choice in {"5", "help", "reference"}:
+        if choice in {"6", "help", "reference"}:
             _print_interactive_help()
             _pause()
+            continue
+        if choice in {"5", "learn", "glossary"}:
+            _learn_menu()
             continue
         if choice in {"1", "decode"}:
             _print_section("Decode: Step 1/3 - Input")
@@ -1215,6 +1327,9 @@ def main() -> None:
                 "--list-encoders", action="store_true", help="list available encoders"
             )
             parser.add_argument(
+                "--info", metavar="CIPHER", help="show glossary entry for a cipher"
+            )
+            parser.add_argument(
                 "--encoder", help="encoder to use in encode mode (skips prompt)"
             )
             parser.add_argument(
@@ -1309,6 +1424,16 @@ def main() -> None:
             if args.list_encoders:
                 for encoder in encoders:
                     print(f"{encoder.name}: {encoder.description}")
+                return
+            if args.info:
+                entry = get_entry(args.info)
+                if entry:
+                    print(format_entry(entry))
+                else:
+                    print(f"No glossary entry found for '{args.info}'")
+                    print("\nAvailable ciphers:")
+                    for e in get_all_entries():
+                        print(f"  - {e.name.lower()}")
                 return
 
             if args.encode and args.decoder:
