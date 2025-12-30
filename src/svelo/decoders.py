@@ -88,6 +88,25 @@ _BACON_26_REVERSE = {}
 _POLYBIUS_REVERSE = {}
 
 
+def _clean_key_alpha(key: str) -> str:
+    cleaned = "".join(ch for ch in key.upper() if "A" <= ch <= "Z")
+    if not cleaned:
+        raise ValueError("Key must contain at least one letter A-Z.")
+    return cleaned
+
+
+def _alpha_index(ch: str) -> int:
+    return ord(ch) - ord("A")
+
+
+def _shift_alpha_char(ch: str, shift: int) -> str:
+    if "a" <= ch <= "z":
+        return chr((ord(ch) - ord("a") + shift) % 26 + ord("a"))
+    if "A" <= ch <= "Z":
+        return chr((ord(ch) - ord("A") + shift) % 26 + ord("A"))
+    return ch
+
+
 def _init_bacon_maps() -> None:
     letters_26 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     letters_24 = "ABCDEFGHIKLMNOPQRSTUWXYZ"
@@ -163,8 +182,26 @@ def _try_hex(text: str, _data: bytes) -> List[DecodeResult]:
     return [DecodeResult("hex", out)]
 
 
+def _try_binary(text: str, _data: bytes) -> List[DecodeResult]:
+    raw = clean_whitespace(text.strip())
+    if not raw:
+        return []
+    if any(ch not in "01" for ch in raw):
+        return []
+    if len(raw) % 8 != 0:
+        return []
+    out = bytearray()
+    for idx in range(0, len(raw), 8):
+        out.append(int(raw[idx : idx + 8], 2))
+    return [DecodeResult("binary", bytes(out))]
+
+
 def encode_hex(text: str) -> str:
     return text.encode("utf-8").hex()
+
+
+def encode_binary(text: str) -> str:
+    return " ".join(format(byte, "08b") for byte in text.encode("utf-8"))
 
 
 def _try_base64(text: str, _data: bytes) -> List[DecodeResult]:
@@ -301,6 +338,439 @@ def encode_atbash(text: str) -> str:
 
 def encode_reverse(text: str) -> str:
     return text[::-1]
+
+
+def _vigenere_key_stream(text: str, key: str) -> List[int]:
+    shifts = [_alpha_index(ch) for ch in _clean_key_alpha(key)]
+    stream = []
+    idx = 0
+    for ch in text:
+        if ch.isalpha():
+            stream.append(shifts[idx % len(shifts)])
+            idx += 1
+        else:
+            stream.append(0)
+    return stream
+
+
+def vigenere_encrypt(text: str, key: str) -> str:
+    shifts = _vigenere_key_stream(text, key)
+    out = []
+    for ch, shift in zip(text, shifts):
+        if ch.isalpha():
+            out.append(_shift_alpha_char(ch, shift))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def vigenere_decrypt(text: str, key: str) -> str:
+    shifts = _vigenere_key_stream(text, key)
+    out = []
+    for ch, shift in zip(text, shifts):
+        if ch.isalpha():
+            out.append(_shift_alpha_char(ch, -shift))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def beaufort_encrypt(text: str, key: str) -> str:
+    shifts = _vigenere_key_stream(text, key)
+    out = []
+    for ch, shift in zip(text, shifts):
+        if ch.isalpha():
+            base = ord("A") if ch.isupper() else ord("a")
+            idx = ord(ch) - base
+            out.append(chr((shift - idx) % 26 + base))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def beaufort_decrypt(text: str, key: str) -> str:
+    return beaufort_encrypt(text, key)
+
+
+def variant_beaufort_encrypt(text: str, key: str) -> str:
+    shifts = _vigenere_key_stream(text, key)
+    out = []
+    for ch, shift in zip(text, shifts):
+        if ch.isalpha():
+            base = ord("A") if ch.isupper() else ord("a")
+            idx = ord(ch) - base
+            out.append(chr((idx - shift) % 26 + base))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def variant_beaufort_decrypt(text: str, key: str) -> str:
+    shifts = _vigenere_key_stream(text, key)
+    out = []
+    for ch, shift in zip(text, shifts):
+        if ch.isalpha():
+            base = ord("A") if ch.isupper() else ord("a")
+            idx = ord(ch) - base
+            out.append(chr((shift + idx) % 26 + base))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def autokey_encrypt(text: str, key: str) -> str:
+    key_clean = _clean_key_alpha(key)
+    out = []
+    key_stream = list(key_clean)
+    for ch in text:
+        if ch.isalpha():
+            shift = _alpha_index(key_stream.pop(0))
+            out.append(_shift_alpha_char(ch, shift))
+            key_stream.append(ch.upper())
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def autokey_decrypt(text: str, key: str) -> str:
+    key_stream = list(_clean_key_alpha(key))
+    out = []
+    for ch in text:
+        if ch.isalpha():
+            shift = _alpha_index(key_stream.pop(0))
+            plain = _shift_alpha_char(ch, -shift)
+            out.append(plain)
+            key_stream.append(plain.upper())
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def keyword_substitution_encrypt(text: str, key: str) -> str:
+    key_clean = _clean_key_alpha(key)
+    seen = set()
+    alphabet = []
+    for ch in key_clean:
+        if ch not in seen:
+            seen.add(ch)
+            alphabet.append(ch)
+    for ch in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        if ch not in seen:
+            alphabet.append(ch)
+    mapping = {plain: subst for plain, subst in zip("ABCDEFGHIJKLMNOPQRSTUVWXYZ", alphabet)}
+    out = []
+    for ch in text:
+        if "A" <= ch <= "Z":
+            out.append(mapping[ch])
+        elif "a" <= ch <= "z":
+            out.append(mapping[ch.upper()].lower())
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def keyword_substitution_decrypt(text: str, key: str) -> str:
+    key_clean = _clean_key_alpha(key)
+    seen = set()
+    alphabet = []
+    for ch in key_clean:
+        if ch not in seen:
+            seen.add(ch)
+            alphabet.append(ch)
+    for ch in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        if ch not in seen:
+            alphabet.append(ch)
+    inverse = {subst: plain for plain, subst in zip("ABCDEFGHIJKLMNOPQRSTUVWXYZ", alphabet)}
+    out = []
+    for ch in text:
+        if "A" <= ch <= "Z":
+            out.append(inverse[ch])
+        elif "a" <= ch <= "z":
+            out.append(inverse[ch.upper()].lower())
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _columnar_key_order(key: str) -> List[int]:
+    key_clean = _clean_key_alpha(key)
+    indexed = list(enumerate(key_clean))
+    sorted_cols = sorted(indexed, key=lambda item: (item[1], item[0]))
+    order = [idx for idx, _ in sorted_cols]
+    return order
+
+
+def columnar_encrypt(text: str, key: str) -> str:
+    order = _columnar_key_order(key)
+    cols = len(order)
+    rows = (len(text) + cols - 1) // cols
+    grid = [text[i * cols : (i + 1) * cols] for i in range(rows)]
+    output = []
+    for col in order:
+        for row in range(rows):
+            if col < len(grid[row]):
+                output.append(grid[row][col])
+    return "".join(output)
+
+
+def columnar_decrypt(text: str, key: str) -> str:
+    order = _columnar_key_order(key)
+    cols = len(order)
+    if cols == 0:
+        return text
+    rows = (len(text) + cols - 1) // cols
+    remainder = len(text) % cols
+    if remainder == 0:
+        remainder = cols
+    col_lengths = [rows if idx < remainder else rows - 1 for idx in range(cols)]
+    columns = [""] * cols
+    idx = 0
+    for col in order:
+        length = col_lengths[col]
+        columns[col] = text[idx : idx + length]
+        idx += length
+    output = []
+    for row in range(rows):
+        for col in range(cols):
+            if row < len(columns[col]):
+                output.append(columns[col][row])
+    return "".join(output)
+
+
+def _playfair_square(key: str) -> List[List[str]]:
+    key_clean = _clean_key_alpha(key).replace("J", "I")
+    seen = set()
+    letters = []
+    for ch in key_clean:
+        if ch not in seen:
+            seen.add(ch)
+            letters.append(ch)
+    for ch in "ABCDEFGHIKLMNOPQRSTUVWXYZ":
+        if ch not in seen:
+            letters.append(ch)
+    square = [letters[i * 5 : (i + 1) * 5] for i in range(5)]
+    return square
+
+
+def _playfair_positions(square: List[List[str]]) -> dict:
+    positions = {}
+    for r, row in enumerate(square):
+        for c, ch in enumerate(row):
+            positions[ch] = (r, c)
+    return positions
+
+
+def _playfair_digraphs(text: str) -> List[str]:
+    raw = "".join(ch for ch in text.upper() if "A" <= ch <= "Z").replace("J", "I")
+    pairs = []
+    idx = 0
+    while idx < len(raw):
+        a = raw[idx]
+        b = raw[idx + 1] if idx + 1 < len(raw) else "X"
+        if a == b:
+            pairs.append(a + "X")
+            idx += 1
+        else:
+            pairs.append(a + b)
+            idx += 2
+    if pairs and len(pairs[-1]) == 1:
+        pairs[-1] = pairs[-1] + "X"
+    return pairs
+
+
+def playfair_encrypt(text: str, key: str) -> str:
+    square = _playfair_square(key)
+    positions = _playfair_positions(square)
+    out = []
+    for pair in _playfair_digraphs(text):
+        a, b = pair[0], pair[1]
+        ra, ca = positions[a]
+        rb, cb = positions[b]
+        if ra == rb:
+            out.append(square[ra][(ca + 1) % 5])
+            out.append(square[rb][(cb + 1) % 5])
+        elif ca == cb:
+            out.append(square[(ra + 1) % 5][ca])
+            out.append(square[(rb + 1) % 5][cb])
+        else:
+            out.append(square[ra][cb])
+            out.append(square[rb][ca])
+    return "".join(out)
+
+
+def playfair_decrypt(text: str, key: str) -> str:
+    square = _playfair_square(key)
+    positions = _playfair_positions(square)
+    raw = "".join(ch for ch in text.upper() if "A" <= ch <= "Z")
+    if len(raw) % 2 != 0:
+        raw = raw + "X"
+    out = []
+    for idx in range(0, len(raw), 2):
+        a, b = raw[idx], raw[idx + 1]
+        ra, ca = positions[a]
+        rb, cb = positions[b]
+        if ra == rb:
+            out.append(square[ra][(ca - 1) % 5])
+            out.append(square[rb][(cb - 1) % 5])
+        elif ca == cb:
+            out.append(square[(ra - 1) % 5][ca])
+            out.append(square[(rb - 1) % 5][cb])
+        else:
+            out.append(square[ra][cb])
+            out.append(square[rb][ca])
+    return "".join(out)
+
+
+def _hill_matrix_from_key(key: str) -> List[List[int]]:
+    key_clean = _clean_key_alpha(key)
+    if len(key_clean) != 4:
+        raise ValueError("Hill cipher key must be exactly 4 letters.")
+    values = [_alpha_index(ch) for ch in key_clean]
+    return [[values[0], values[1]], [values[2], values[3]]]
+
+
+def _modinv(value: int, modulus: int) -> int:
+    value %= modulus
+    for i in range(1, modulus):
+        if (value * i) % modulus == 1:
+            return i
+    raise ValueError("Key matrix is not invertible under mod 26.")
+
+
+def hill_encrypt(text: str, key: str) -> str:
+    matrix = _hill_matrix_from_key(key)
+    raw = "".join(ch for ch in text.upper() if "A" <= ch <= "Z")
+    if len(raw) % 2 != 0:
+        raw += "X"
+    out = []
+    for idx in range(0, len(raw), 2):
+        a = _alpha_index(raw[idx])
+        b = _alpha_index(raw[idx + 1])
+        c0 = (matrix[0][0] * a + matrix[0][1] * b) % 26
+        c1 = (matrix[1][0] * a + matrix[1][1] * b) % 26
+        out.append(chr(c0 + ord("A")))
+        out.append(chr(c1 + ord("A")))
+    return "".join(out)
+
+
+def hill_decrypt(text: str, key: str) -> str:
+    matrix = _hill_matrix_from_key(key)
+    det = (matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]) % 26
+    inv_det = _modinv(det, 26)
+    inv = [
+        [(matrix[1][1] * inv_det) % 26, (-matrix[0][1] * inv_det) % 26],
+        [(-matrix[1][0] * inv_det) % 26, (matrix[0][0] * inv_det) % 26],
+    ]
+    raw = "".join(ch for ch in text.upper() if "A" <= ch <= "Z")
+    if len(raw) % 2 != 0:
+        raw += "X"
+    out = []
+    for idx in range(0, len(raw), 2):
+        a = _alpha_index(raw[idx])
+        b = _alpha_index(raw[idx + 1])
+        p0 = (inv[0][0] * a + inv[0][1] * b) % 26
+        p1 = (inv[1][0] * a + inv[1][1] * b) % 26
+        out.append(chr(p0 + ord("A")))
+        out.append(chr(p1 + ord("A")))
+    return "".join(out)
+
+
+def _adfgx_square(key: str) -> dict:
+    key_clean = _clean_key_alpha(key).replace("J", "I")
+    seen = set()
+    letters = []
+    for ch in key_clean:
+        if ch not in seen:
+            seen.add(ch)
+            letters.append(ch)
+    for ch in "ABCDEFGHIKLMNOPQRSTUVWXYZ":
+        if ch not in seen:
+            letters.append(ch)
+    coords = {}
+    symbols = "ADFGX"
+    idx = 0
+    for r in range(5):
+        for c in range(5):
+            coords[letters[idx]] = symbols[r] + symbols[c]
+            idx += 1
+    return coords
+
+
+def _adfgx_reverse_square(key: str) -> dict:
+    forward = _adfgx_square(key)
+    return {value: k for k, value in forward.items()}
+
+
+def adfgx_encrypt(text: str, square_key: str, transposition_key: str) -> str:
+    coords = _adfgx_square(square_key)
+    raw = "".join(ch for ch in text.upper() if "A" <= ch <= "Z").replace("J", "I")
+    pairs = "".join(coords[ch] for ch in raw)
+    return columnar_encrypt(pairs, transposition_key)
+
+
+def adfgx_decrypt(text: str, square_key: str, transposition_key: str) -> str:
+    reverse = _adfgx_reverse_square(square_key)
+    pairs = columnar_decrypt(text, transposition_key)
+    if len(pairs) % 2 != 0:
+        pairs = pairs[:-1]
+    out = []
+    for idx in range(0, len(pairs), 2):
+        digraph = pairs[idx : idx + 2]
+        letter = reverse.get(digraph)
+        if letter is None:
+            raise ValueError("Invalid ADFGX digraph encountered.")
+        out.append(letter)
+    return "".join(out)
+
+
+def _adfgvx_square(key: str) -> dict:
+    key_clean = "".join(ch for ch in key.upper() if ch.isalnum())
+    if not key_clean:
+        raise ValueError("Key must contain at least one letter or digit.")
+    seen = set()
+    alphabet = []
+    for ch in key_clean:
+        if ch not in seen:
+            seen.add(ch)
+            alphabet.append(ch)
+    for ch in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
+        if ch not in seen:
+            alphabet.append(ch)
+    coords = {}
+    symbols = "ADFGVX"
+    idx = 0
+    for r in range(6):
+        for c in range(6):
+            coords[alphabet[idx]] = symbols[r] + symbols[c]
+            idx += 1
+    return coords
+
+
+def _adfgvx_reverse_square(key: str) -> dict:
+    forward = _adfgvx_square(key)
+    return {value: k for k, value in forward.items()}
+
+
+def adfgvx_encrypt(text: str, square_key: str, transposition_key: str) -> str:
+    coords = _adfgvx_square(square_key)
+    raw = "".join(ch for ch in text.upper() if ch.isalnum())
+    pairs = "".join(coords[ch] for ch in raw)
+    return columnar_encrypt(pairs, transposition_key)
+
+
+def adfgvx_decrypt(text: str, square_key: str, transposition_key: str) -> str:
+    reverse = _adfgvx_reverse_square(square_key)
+    pairs = columnar_decrypt(text, transposition_key)
+    if len(pairs) % 2 != 0:
+        pairs = pairs[:-1]
+    out = []
+    for idx in range(0, len(pairs), 2):
+        digraph = pairs[idx : idx + 2]
+        letter = reverse.get(digraph)
+        if letter is None:
+            raise ValueError("Invalid ADFGVX digraph encountered.")
+        out.append(letter)
+    return "".join(out)
 
 
 def _try_atbash(text: str, _data: bytes) -> List[DecodeResult]:
@@ -597,7 +1067,9 @@ def _rail_fence_encrypt(text: str, rails: int) -> str:
     return "".join("".join(line) for line in lines)
 
 
-def encode_railfence(text: str, rails: int) -> str:
+def encode_railfence(text: str, rails: int, strip_spaces: bool = False) -> str:
+    if strip_spaces:
+        text = clean_whitespace(text)
     return _rail_fence_encrypt(text, rails)
 
 
@@ -611,8 +1083,21 @@ def _try_rail_fence(text: str, _data: bytes) -> List[DecodeResult]:
         if out_text == text:
             continue
         results.append(
-            DecodeResult("railfence", out_text.encode("utf-8"), note=f"rails={rails}")
+            DecodeResult(
+                "railfence", out_text.encode("utf-8"), note=f"rails={rails},stripspaces=no"
+            )
         )
+        stripped = clean_whitespace(text)
+        if stripped and stripped != text:
+            out_text = _rail_fence_decrypt(stripped, rails)
+            if out_text != stripped:
+                results.append(
+                    DecodeResult(
+                        "railfence",
+                        out_text.encode("utf-8"),
+                        note=f"rails={rails},stripspaces=yes",
+                    )
+                )
     return results
 
 
@@ -655,6 +1140,46 @@ def _scytale_encrypt(text: str, cols: int) -> str:
 
 def encode_scytale(text: str, cols: int) -> str:
     return _scytale_encrypt(text, cols)
+
+
+def encode_vigenere(text: str, key: str) -> str:
+    return vigenere_encrypt(text, key)
+
+
+def encode_beaufort(text: str, key: str) -> str:
+    return beaufort_encrypt(text, key)
+
+
+def encode_variant(text: str, key: str) -> str:
+    return variant_beaufort_encrypt(text, key)
+
+
+def encode_autokey(text: str, key: str) -> str:
+    return autokey_encrypt(text, key)
+
+
+def encode_keyword_substitution(text: str, key: str) -> str:
+    return keyword_substitution_encrypt(text, key)
+
+
+def encode_columnar(text: str, key: str) -> str:
+    return columnar_encrypt(text, key)
+
+
+def encode_playfair(text: str, key: str) -> str:
+    return playfair_encrypt(text, key)
+
+
+def encode_hill(text: str, key: str) -> str:
+    return hill_encrypt(text, key)
+
+
+def encode_adfgx(text: str, square_key: str, transposition_key: str) -> str:
+    return adfgx_encrypt(text, square_key, transposition_key)
+
+
+def encode_adfgvx(text: str, square_key: str, transposition_key: str) -> str:
+    return adfgvx_encrypt(text, square_key, transposition_key)
 
 
 def _try_scytale(text: str, _data: bytes) -> List[DecodeResult]:
@@ -724,6 +1249,7 @@ def _try_jwt(text: str, _data: bytes) -> List[DecodeResult]:
 def get_decoders() -> List[Decoder]:
     return [
         Decoder("hex", "hex string to bytes", _try_hex),
+        Decoder("binary", "binary string to bytes", _try_binary),
         Decoder("base64", "base64 decode", _try_base64),
         Decoder("base64url", "urlsafe base64 decode", _try_base64url),
         Decoder("base32", "base32 decode", _try_base32),
@@ -751,6 +1277,7 @@ def get_decoders() -> List[Decoder]:
 def get_encoders() -> List[Encoder]:
     return [
         Encoder("hex", "hex encode", encode_hex),
+        Encoder("binary", "binary encode", encode_binary),
         Encoder("base64", "base64 encode", encode_base64),
         Encoder("base64url", "urlsafe base64 encode", encode_base64url),
         Encoder("base32", "base32 encode", encode_base32),
@@ -768,4 +1295,14 @@ def get_encoders() -> List[Encoder]:
         Encoder("morse", "morse code encode"),
         Encoder("railfence", "rail fence transposition encode"),
         Encoder("scytale", "scytale transposition encode"),
+        Encoder("vigenere", "vigenere cipher encode"),
+        Encoder("beaufort", "beaufort cipher encode"),
+        Encoder("variant", "variant beaufort cipher encode"),
+        Encoder("autokey", "autokey cipher encode"),
+        Encoder("keyword", "keyword substitution encode"),
+        Encoder("columnar", "columnar transposition encode"),
+        Encoder("playfair", "playfair cipher encode"),
+        Encoder("hill", "hill cipher (2x2) encode"),
+        Encoder("adfgx", "adfgx cipher encode"),
+        Encoder("adfgvx", "adfgvx cipher encode"),
     ]

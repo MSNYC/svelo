@@ -35,6 +35,14 @@ def test_base64_decode():
     assert results[0].output == b"Hello"
 
 
+def test_binary_decode():
+    decoder = _decoder_by_name("binary")
+    encoded = "01001000 01100001 01110000 01110000 01111001"
+    results = decoder.func(encoded, encoded.encode("utf-8"))
+    assert len(results) == 1
+    assert results[0].output == b"Happy"
+
+
 def test_atbash_decode():
     decoder = _decoder_by_name("atbash")
     results = decoder.func("Svool", b"Svool")
@@ -61,6 +69,7 @@ def test_caesar_decode():
 def test_roundtrip_simple_encoders():
     plain = "Hello World"
     _assert_roundtrip("hex", plain, dec.encode_hex(plain))
+    _assert_roundtrip("binary", plain, dec.encode_binary(plain))
     _assert_roundtrip("base64", plain, dec.encode_base64(plain))
     _assert_roundtrip("base64url", plain, dec.encode_base64url(plain))
     _assert_roundtrip("base32", plain, dec.encode_base32(plain))
@@ -83,8 +92,25 @@ def test_roundtrip_param_encoders():
     _assert_roundtrip("bacon", "HELLO", dec.encode_bacon("HELLO", "binary"), "binary")
     _assert_roundtrip("polybius", "HELLO", dec.encode_polybius("HELLO"))
     rail_plain = "WEAREDISCOVEREDFLEEATONCE"
-    _assert_roundtrip("railfence", rail_plain, dec.encode_railfence(rail_plain, 3), "rails=3")
+    _assert_roundtrip(
+        "railfence",
+        rail_plain,
+        dec.encode_railfence(rail_plain, 3),
+        "rails=3,stripspaces=no",
+    )
     _assert_roundtrip("scytale", rail_plain, dec.encode_scytale(rail_plain, 5), "cols=5")
+
+
+def test_vigenere_roundtrip():
+    plain = "Hello World"
+    cipher = dec.vigenere_encrypt(plain, "KEY")
+    assert dec.vigenere_decrypt(cipher, "KEY") == plain
+
+
+def test_columnar_roundtrip():
+    plain = "Happy New Year"
+    cipher = dec.columnar_encrypt(plain, "ZEBRA")
+    assert dec.columnar_decrypt(cipher, "ZEBRA") == plain
 
 
 def _fibonacci_encode(
@@ -181,7 +207,7 @@ def test_rail_fence_decode():
     decoder = _decoder_by_name("railfence")
     cipher = "WECRLTEERDSOEEFEAOCAIVDEN"
     results = decoder.func(cipher, cipher.encode("utf-8"))
-    matches = [result for result in results if result.note == "rails=3"]
+    matches = [result for result in results if result.note == "rails=3,stripspaces=no"]
     assert any(result.output == b"WEAREDISCOVEREDFLEEATONCE" for result in matches)
 
 
