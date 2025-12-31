@@ -7,5 +7,5 @@ __pycache__/
 build/
 dist/
 
-# Temporary agent-generated reports
-URL_VERIFICATION_REPORT.md
+# Local development files (agent reports, notes, experiments)
+local/
