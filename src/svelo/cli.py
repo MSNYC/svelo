@@ -42,7 +42,7 @@ from .decoders import (
     variant_beaufort_decrypt,
     vigenere_decrypt,
 )
-from .glossary import format_entry, get_all_entries, get_entry, search_entries
+from .glossary import format_entry, get_all_entries, get_entry, search_entries, difficulty_symbol
 from .utils import english_score, is_ctf_flag, to_text
 
 try:
@@ -907,9 +907,10 @@ def _learn_menu() -> None:
             _clear_view()
             _print_section("Learn: All Ciphers")
             entries = get_all_entries()
-            print(f"Showing {len(entries)} cipher(s) and encoding(s):\n")
+            print("Difficulty: [+] Beginner  [++] Intermediate  [+++] Advanced")
+            print(f"\nShowing {len(entries)} cipher(s) and encoding(s):\n")
             for i, entry in enumerate(entries, 1):
-                print(f"{i}) {entry.name} - {entry.description[:70]}...")
+                print(f"{i}) {entry.name} {difficulty_symbol(entry.difficulty)} - {entry.description[:60]}...")
             print("")
             print("Enter a number or cipher name to learn more, or press Enter to continue.")
             selection = _prompt_line("Selection: ")
