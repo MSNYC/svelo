@@ -43,7 +43,7 @@ from .decoders import (
     vigenere_decrypt,
 )
 from .glossary import format_entry, get_all_entries, get_entry, search_entries
-from .utils import english_score, to_text
+from .utils import english_score, is_ctf_flag, to_text
 
 try:
     import termios
@@ -805,7 +805,7 @@ def _decode_text(
         filtered = [
             scored
             for scored in scored_items
-            if scored.abs_score >= min_score and scored.delta >= min_delta
+            if is_ctf_flag(scored.output_text) or (scored.abs_score >= min_score and scored.delta >= min_delta)
         ]
         if max_per_decoder > 0:
             capped = []
