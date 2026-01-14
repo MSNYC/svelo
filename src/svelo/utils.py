@@ -101,6 +101,36 @@ def similarity_ratio(left: str, right: str) -> float:
     return (matches / min_len) * (min_len / max_len)
 
 
+def is_ctf_flag(text: str) -> bool:
+    """
+    Detect if text matches common CTF flag patterns.
+
+    Common patterns include:
+    - picoCTF{...}
+    - flag{...}
+    - CTF{...}
+    - HTB{...}
+    - And other variations with curly braces
+
+    Args:
+        text: The text to check for flag patterns
+
+    Returns:
+        True if the text matches a CTF flag pattern, False otherwise
+    """
+    if not text:
+        return False
+
+    # Strip whitespace for pattern matching
+    stripped = text.strip()
+
+    # Check for common CTF flag patterns with curly braces
+    # Pattern: word characters followed by {content}
+    flag_pattern = r'\w+\{.+\}'
+
+    return bool(re.search(flag_pattern, stripped))
+
+
 def english_score(text: str) -> float:
     if not text:
         return 0.0
