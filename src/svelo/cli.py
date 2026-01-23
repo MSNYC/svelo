@@ -409,10 +409,13 @@ def _suppress_ctrl_echo() -> None:
 def _copy_to_clipboard(text: str) -> bool:
     if not text:
         return False
+    wayland_display = os.environ.get("WAYLAND_DISPLAY")
+    session_type = os.environ.get("XDG_SESSION_TYPE", "").lower()
+    is_wayland = bool(wayland_display) or session_type == "wayland"
     commands = []
     if sys.platform == "darwin" and shutil.which("pbcopy"):
         commands.append(["pbcopy"])
-    if shutil.which("wl-copy"):
+    if is_wayland and shutil.which("wl-copy"):
         commands.append(["wl-copy"])
     if shutil.which("xclip"):
         commands.append(["xclip", "-selection", "clipboard"])
@@ -420,7 +423,14 @@ def _copy_to_clipboard(text: str) -> bool:
         commands.append(["clip"])
     for cmd in commands:
         try:
-            subprocess.run(cmd, input=text, text=True, check=True)
+            subprocess.run(
+                cmd,
+                input=text,
+                text=True,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         except (OSError, subprocess.CalledProcessError):
             continue
         return True
